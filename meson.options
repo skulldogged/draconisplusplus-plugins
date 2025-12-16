@@ -1,0 +1,5 @@
+option('json_format', type: 'boolean', value: true, description: 'Build JSON format plugin')
+option('markdown_format', type: 'boolean', value: true, description: 'Build Markdown format plugin')
+option('now_playing', type: 'boolean', value: true, description: 'Build Now Playing plugin')
+option('weather', type: 'boolean', value: true, description: 'Build Weather plugin')
+option('yaml_format', type: 'boolean', value: true, description: 'Build YAML format plugin')

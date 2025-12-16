@@ -1,0 +1,22 @@
+# Build artifacts
+build/
+builddir/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Cache
+.cache/
+
+# Subprojects (downloaded by meson)
+subprojects/*
+!subprojects/*.wrap
+!subprojects/packagefiles/
+
+# OS specific
+.DS_Store
+Thumbs.db

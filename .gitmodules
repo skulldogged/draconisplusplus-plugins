@@ -1,0 +1,3 @@
+[submodule "subprojects/draconis"]
+	path = subprojects/draconis
+	url = https://github.com/skulldogged/draconisplusplus.git
