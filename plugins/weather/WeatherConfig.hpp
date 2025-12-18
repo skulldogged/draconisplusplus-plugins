@@ -20,7 +20,7 @@
 #include <utility>
 #include <variant>
 
-namespace weather::config {
+namespace draconis::config::weather {
   // Location types - type aliases for cleaner syntax
   using Coordinates = std::pair<double, double>; // {lat, lon}
   using CityName    = std::string_view;
@@ -78,4 +78,4 @@ namespace weather::config {
     return true;
   }
 
-} // namespace weather::config
+} // namespace draconis::config::weather

@@ -33,7 +33,7 @@ namespace fs = std::filesystem;
 
 // Compile-time validation - fails build if config is invalid
 static_assert(
-  weather::config::Validate(draconis::config::WEATHER_CONFIG),
+  draconis::config::weather::Validate(draconis::config::WEATHER_CONFIG),
   "Invalid weather config: OpenMeteo/MetNo require coordinates; "
   "OpenWeatherMap requires API key and supports city names"
 );
@@ -853,21 +853,21 @@ namespace {
 
 #if DRAC_PRECOMPILED_CONFIG
     // Load configuration from typed config
-    static auto loadConfigFromPrecompiled(const weather::config::Config& precompiledCfg) -> weather::WeatherConfig {
-      using namespace weather::config;
+    static auto loadConfigFromPrecompiled(const draconis::config::weather::Config& precompiledCfg) -> ::weather::WeatherConfig {
+      namespace cfg_ns = draconis::config::weather;
 
-      weather::WeatherConfig cfg;
+      ::weather::WeatherConfig cfg;
       cfg.enabled  = true; // Always enabled if loaded
-      cfg.provider = static_cast<weather::Provider>(precompiledCfg.provider);
-      cfg.units    = static_cast<weather::UnitSystem>(precompiledCfg.units);
+      cfg.provider = static_cast<::weather::Provider>(precompiledCfg.provider);
+      cfg.units    = static_cast<::weather::UnitSystem>(precompiledCfg.units);
 
       // Handle location variant (Coordinates = pair<double,double>, CityName = string_view)
       std::visit(
-        [&cfg](auto&& loc) -> auto {
+        [&cfg](auto&& loc) -> void {
           using T = std::decay_t<decltype(loc)>;
-          if constexpr (std::is_same_v<T, Coordinates>)
-            cfg.coords = weather::Coords { loc.first, loc.second }; // {lat, lon}
-          else if constexpr (std::is_same_v<T, CityName>)
+          if constexpr (std::is_same_v<T, cfg_ns::Coordinates>)
+            cfg.coords = ::weather::Coords { loc.first, loc.second }; // {lat, lon}
+          else if constexpr (std::is_same_v<T, cfg_ns::CityName>)
             cfg.city = String(loc); // string_view directly
         },
         precompiledCfg.location
