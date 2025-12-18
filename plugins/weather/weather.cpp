@@ -27,9 +27,11 @@
 
 namespace fs = std::filesystem;
 
+// Always include WeatherConfig.hpp for unified enum definitions
+#include "WeatherConfig.hpp"
+
 #if DRAC_PRECOMPILED_CONFIG
   #include "../../config.hpp" // Get draconis::config::WEATHER_CONFIG
-  #include "WeatherConfig.hpp"
 
 // Compile-time validation - fails build if config is invalid
 static_assert(
@@ -54,22 +56,9 @@ using namespace draconis::utils::logging;
 using enum DracErrorCode;
 
 namespace weather {
-  /**
-   * @brief Specifies the weather service provider.
-   */
-  enum class Provider : u8 {
-    OpenWeatherMap,
-    OpenMeteo,
-    MetNo,
-  };
-
-  /**
-   * @brief Specifies the unit system for weather information.
-   */
-  enum class UnitSystem : u8 {
-    Metric,
-    Imperial,
-  };
+  // Use unified enum definitions from WeatherConfig.hpp
+  using Provider   = config::Provider;
+  using UnitSystem = config::Units;
 
   /**
    * @brief Geographic coordinates
@@ -857,9 +846,9 @@ namespace {
       using namespace weather::config;
 
       weather::WeatherConfig cfg;
-      cfg.enabled  = true; // Always enabled if loaded
-      cfg.provider = static_cast<weather::Provider>(precompiledCfg.provider);
-      cfg.units    = static_cast<weather::UnitSystem>(precompiledCfg.units);
+      cfg.enabled  = true;                    // Always enabled if loaded
+      cfg.provider = precompiledCfg.provider; // Same type, no cast needed
+      cfg.units    = precompiledCfg.units;    // Same type, no cast needed
 
       // Handle location variant (Coordinates = pair<double,double>, CityName = string_view)
       std::visit(
