@@ -2,6 +2,7 @@
   "name": "now_playing",
   "description": "Provides currently playing media information (Windows: NPSM, macOS: MediaRemote, Linux/BSD: MPRIS/DBus)",
   "platform": "all",
+  "codesign": true,
   "sources": [
     {
       "file": "now_playing_macos.mm",
