@@ -2,6 +2,12 @@
   "name": "now_playing",
   "description": "Provides currently playing media information (Windows: NPSM, macOS: MediaRemote, Linux/BSD: MPRIS/DBus)",
   "platform": "all",
+  "sources": [
+    {
+      "file": "now_playing_macos.mm",
+      "platforms": ["darwin"]
+    }
+  ],
   "deps": [
     {
       "name": "dbus-1",

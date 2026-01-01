@@ -21,30 +21,13 @@
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
 
+#include "now_playing_types.hpp"
+
 using namespace draconis::core::plugin;
 using namespace draconis::utils::types;
 using namespace draconis::utils::error;
-using namespace draconis::utils::logging;
+// using namespace draconis::utils::logging; // Removed to avoid conflict with MacTypes.h Style
 using enum DracErrorCode;
-
-namespace now_playing {
-  /**
-   * @brief Media information data structure
-   */
-  struct MediaData {
-    Option<String> title;
-    Option<String> artist;
-    Option<String> album;
-    Option<String> playerName;
-  };
-
-  /**
-   * @brief Plugin configuration
-   */
-  struct NowPlayingConfig {
-    bool enabled = true;
-  };
-} // namespace now_playing
 
 // Glaze metadata for serialization
 namespace glz {
@@ -259,90 +242,10 @@ namespace now_playing::npsm {
 
 #ifdef __APPLE__
 
-  #import <Foundation/Foundation.h>
-  #import <dispatch/dispatch.h>
-
+// macOS implementation is in now_playing_macos.mm (Objective-C++)
+// Forward declaration of the function defined there
 namespace now_playing::macos {
-  // Forward-declare the function pointer type for the private MediaRemote API.
-  using MRMediaRemoteGetNowPlayingInfoFn =
-    void (*)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
-
-  /**
-   * @brief Fetch now playing information via macOS MediaRemote framework
-   */
-  auto fetchNowPlaying() -> Result<MediaData> {
-    @autoreleasepool {
-      // Since MediaRemote.framework is private, we cannot link against it directly.
-      // Instead, it must be loaded at runtime using CFURL and CFBundle.
-      CFURLRef urlRef = CFURLCreateWithFileSystemPath(
-        kCFAllocatorDefault,
-        CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"),
-        kCFURLPOSIXPathStyle,
-        false
-      );
-
-      if (!urlRef)
-        ERR(NotFound, "Failed to create CFURL for MediaRemote.framework");
-
-      // Create a bundle from the URL
-      CFBundleRef bundleRef = CFBundleCreate(kCFAllocatorDefault, urlRef);
-      CFRelease(urlRef);
-
-      if (!bundleRef)
-        ERR(ApiUnavailable, "Failed to create bundle for MediaRemote.framework");
-
-      // Ensure CFRelease is called even if an error occurs.
-      SharedPointer<std::remove_pointer_t<CFBundleRef>> managedBundle(bundleRef, [](CFBundleRef bundle) {
-        if (bundle)
-          CFRelease(bundle);
-      });
-
-      // Get a pointer to the MRMediaRemoteGetNowPlayingInfo function from the bundle.
-      auto mrMediaRemoteGetNowPlayingInfo = std::bit_cast<MRMediaRemoteGetNowPlayingInfoFn>(
-        CFBundleGetFunctionPointerForName(bundleRef, CFSTR("MRMediaRemoteGetNowPlayingInfo"))
-      );
-
-      if (!mrMediaRemoteGetNowPlayingInfo)
-        ERR(ApiUnavailable, "Failed to get MRMediaRemoteGetNowPlayingInfo function pointer");
-
-      // A semaphore is used to make this asynchronous call behave synchronously.
-      __block Result<MediaData>  result;
-      const dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-
-      mrMediaRemoteGetNowPlayingInfo(
-        dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-        ^(NSDictionary* information) {
-          if (!information) {
-            result = Err(DracError(NotFound, "No media is currently playing"));
-          } else {
-            MediaData data;
-
-            // Extract the title, artist, and album from the dictionary
-            const NSString* const titleNS  = [information objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
-            const NSString* const artistNS = [information objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
-            const NSString* const albumNS  = [information objectForKey:@"kMRMediaRemoteNowPlayingInfoAlbum"];
-
-            if (titleNS)
-              data.title = String([titleNS UTF8String]);
-
-            if (artistNS)
-              data.artist = String([artistNS UTF8String]);
-
-            if (albumNS)
-              data.album = String([albumNS UTF8String]);
-
-            result = data;
-          }
-
-          dispatch_semaphore_signal(semaphore);
-        }
-      );
-
-      // Block until the callback signals completion
-      dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-      return result;
-    }
-  }
+  auto fetchNowPlaying() -> Result<MediaData>;
 } // namespace now_playing::macos
 
 #endif // __APPLE__
