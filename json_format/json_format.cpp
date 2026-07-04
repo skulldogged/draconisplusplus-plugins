@@ -23,6 +23,7 @@
 
 namespace {
   using namespace draconis::utils::types;
+  using draconis::core::plugin::PluginData;
 
   /**
    * @brief JSON output structure for system information
@@ -58,7 +59,7 @@ namespace {
     Option<String> weatherTown;
 
     // Plugin-contributed fields organized by plugin ID
-    Map<String, Map<String, String>> pluginFields;
+    PluginData pluginFields;
   };
 
 } // anonymous namespace
@@ -144,7 +145,7 @@ namespace {
     [[nodiscard]] auto formatOutput(
       const String&                           formatName,
       const Map<String, String>&              data,
-      const Map<String, Map<String, String>>& pluginData
+      const PluginData&                       pluginData
     ) const -> Result<String> override {
       if (!m_ready)
         return Err(draconis::utils::error::DracError { draconis::utils::error::DracErrorCode::Other, "JsonFormatPlugin is not ready." });

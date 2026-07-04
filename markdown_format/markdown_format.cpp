@@ -143,7 +143,7 @@ namespace {
     auto formatOutput(
       const String& /*formatName*/,
       const Map<String, String>&              data,
-      const Map<String, Map<String, String>>& pluginData
+      const draconis::core::plugin::PluginData& pluginData
     ) const -> Result<String> override {
       if (!m_ready)
         return Err(
@@ -215,7 +215,7 @@ namespace {
         for (const auto& [pluginId, fields] : pluginData) {
           builder.raw(std::format("### {}\n\n", pluginId));
           for (const auto& [fieldName, value] : fields)
-            builder.raw(std::format("- **{}**: {}\n", fieldName, value));
+            builder.raw(std::format("- **{}**: {}\n", fieldName, draconis::core::plugin::PluginFieldToString(value)));
           builder.raw("\n");
         }
       }

@@ -1174,11 +1174,11 @@ units = "metric"
       return {};
     }
 
-    [[nodiscard]] auto getFields() const -> Map<String, String> override {
-      Map<String, String> fields;
+    [[nodiscard]] auto getFields() const -> PluginFields override {
+      PluginFields fields;
 
       if (m_data.temperature)
-        fields["temperature"] = std::format("{:.1f}", *m_data.temperature);
+        fields["temperature"] = static_cast<f64>(*m_data.temperature);
 
       if (m_data.description)
         fields["description"] = *m_data.description;

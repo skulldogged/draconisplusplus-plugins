@@ -83,7 +83,7 @@ namespace {
     auto formatOutput(
       const String& /*formatName*/,
       const Map<String, String>&              data,
-      const Map<String, Map<String, String>>& pluginData
+      const draconis::core::plugin::PluginData& pluginData
     ) const -> Result<String> override {
       if (!m_ready)
         return Err(draconis::utils::error::DracError { draconis::utils::error::DracErrorCode::Other, "YamlFormatPlugin is not ready." });
@@ -193,7 +193,8 @@ namespace {
 
           for (const auto& [fieldName, value] : fields) {
             ryml::csubstr arenaFieldName               = tree.copy_to_arena(ryml::to_csubstr(fieldName));
-            pluginsNode[arenaPluginId][arenaFieldName] = ryml::to_csubstr(value);
+            const String stringValue                    = draconis::core::plugin::PluginFieldToString(value);
+            pluginsNode[arenaPluginId][arenaFieldName] = tree.copy_to_arena(ryml::to_csubstr(stringValue));
           }
         }
       }

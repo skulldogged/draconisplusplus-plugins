@@ -755,8 +755,8 @@ namespace {
       return {};
     }
 
-    [[nodiscard]] auto getFields() const -> Map<String, String> override {
-      Map<String, String> fields;
+    [[nodiscard]] auto getFields() const -> PluginFields override {
+      PluginFields fields;
 
       if (m_data.title)
         fields["title"] = *m_data.title;
