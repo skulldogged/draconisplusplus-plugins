@@ -56,24 +56,30 @@ Available packages:
 - `packages.${system}.weather`
 - `packages.${system}.yaml_format`
 
+For precompiled plugin configuration, use `lib.${system}.mkPluginRoot` to
+produce a configured plugin root. The generated config lives inside the copied
+plugin source tree, e.g. `weather/config.hpp`.
+
 With the core Home Manager module:
 
 ```nix
 programs.draconisplusplus = {
   enable = true;
+  configFormat = "hpp";
   pluginPackages = [
-    inputs.draconisplusplus-plugins.packages.${pkgs.system}.all
+    (inputs.draconisplusplus-plugins.lib.${pkgs.system}.mkPluginRoot {
+      weather = {
+        provider = "openmeteo";
+        units = "imperial";
+        coords = {
+          lat = 40.7128;
+          lon = -74.0060;
+        };
+      };
+    })
   ];
   staticPlugins = ["weather" "json_format"];
   pluginAutoLoad = ["weather"];
-  pluginConfigs.weather = {
-    enabled = true;
-    provider = "openmeteo";
-    coords = {
-      lat = 40.7128;
-      lon = -74.0060;
-    };
-  };
 };
 ```
 
