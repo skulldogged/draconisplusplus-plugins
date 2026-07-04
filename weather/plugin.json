@@ -1,0 +1,13 @@
+{
+  "name": "weather",
+  "class": "WeatherPlugin",
+  "description": "Provides weather information from various providers (OpenMeteo, MetNo, OpenWeatherMap)",
+  "platform": "all",
+  "deps": [
+    {
+      "name": "libcurl",
+      "include_type": "system",
+      "static": true
+    }
+  ]
+}
