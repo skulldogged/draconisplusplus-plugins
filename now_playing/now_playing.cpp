@@ -755,13 +755,6 @@ namespace {
       return {};
     }
 
-    [[nodiscard]] auto toJson() const -> Result<String> override {
-      String jsonStr;
-      if (glz::error_ctx errc = glz::write<glz::opts { .skip_null_members = true, .prettify = true }>(m_data, jsonStr); errc)
-        ERR_FMT(ParseError, "Failed to serialize now playing data: {}", glz::format_error(errc, jsonStr));
-      return jsonStr;
-    }
-
     [[nodiscard]] auto getFields() const -> Map<String, String> override {
       Map<String, String> fields;
 
