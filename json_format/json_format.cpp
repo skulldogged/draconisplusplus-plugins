@@ -58,8 +58,6 @@ namespace {
     Option<String> weatherDescription;
     Option<String> weatherTown;
 
-    // Plugin-contributed fields organized by plugin ID
-    PluginData pluginFields;
   };
 
 } // anonymous namespace
@@ -96,8 +94,7 @@ namespace glz {
       "packageCount",      &T::packageCount,
       "weatherTemperature",&T::weatherTemperature,
       "weatherDescription",&T::weatherDescription,
-      "weatherTown",       &T::weatherTown,
-      "pluginFields",      &T::pluginFields
+      "weatherTown",       &T::weatherTown
     );
     // clang-format on
   };
@@ -225,9 +222,6 @@ namespace {
       output.weatherDescription = getOptional("weather_description");
       output.weatherTown        = getOptional("weather_town");
 
-      // Use plugin data directly (already organized by plugin ID)
-      output.pluginFields = pluginData;
-
       // Serialize to JSON
       String jsonStr;
 
@@ -237,6 +231,8 @@ namespace {
 
       if (errorContext)
         return Err(draconis::utils::error::DracError { draconis::utils::error::DracErrorCode::ParseError, std::format("Failed to write JSON output: {}", glz::format_error(errorContext, jsonStr)) });
+
+      draconis::core::plugin::AppendPluginDataJsonProperty(jsonStr, pluginData);
 
       return jsonStr;
     }
