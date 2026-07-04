@@ -11,7 +11,7 @@
  *
  * Configuration is read from:
  * - Runtime mode: ~/.config/draconis++/plugins/weather.toml
- * - Precompiled mode: plugins/weather/config.hpp
+ * - Runtime TOML passed by the host application
  *
  * This is a single-file plugin that combines all functionality for static plugin support.
  */
@@ -21,6 +21,7 @@
 #include <format>
 #include <fstream>
 #include <glaze/glaze.hpp>
+#include <glaze/toml.hpp>
 #include <matchit.hpp>
 #include <unordered_map>
 #include <utility>
@@ -29,19 +30,6 @@ namespace fs = std::filesystem;
 
 // Always include WeatherConfig.hpp for unified enum definitions
 #include "WeatherConfig.hpp"
-
-#if DRAC_PRECOMPILED_CONFIG
-  #include "../../config.hpp" // Get draconis::config::WEATHER_CONFIG
-
-// Compile-time validation - fails build if config is invalid
-static_assert(
-  weather::config::Validate(draconis::config::WEATHER_CONFIG),
-  "Invalid weather config: OpenMeteo/MetNo require coordinates; "
-  "OpenWeatherMap requires API key and supports city names"
-);
-#else
-  #include <glaze/toml.hpp>
-#endif
 
 #include <Drac++/Core/Plugin.hpp>
 
@@ -94,7 +82,6 @@ namespace weather {
 // TOML parsing structures for glaze
 // Note: glaze's TOML parser doesn't support std::optional or std::variant directly,
 // so we use empty strings/zero values as sentinels for "not provided"
-#if !DRAC_PRECOMPILED_CONFIG
 namespace {
   // Location coordinates table
   struct TomlLocationCoords {
@@ -173,7 +160,6 @@ struct glz::meta<TomlMainConfig> {
   #ifdef __clang__
     #pragma clang diagnostic pop
   #endif
-#endif // !DRAC_PRECOMPILED_CONFIG
 
 // DTO namespaces for API responses
 namespace weather::dto {
@@ -841,34 +827,6 @@ namespace {
     Option<String>                                      m_runtimeConfig;
     bool                                                m_ready = false;
 
-#if DRAC_PRECOMPILED_CONFIG
-    // Load configuration from typed config
-    static auto loadConfigFromPrecompiled(const weather::config::Config& precompiledCfg) -> weather::WeatherConfig {
-      using namespace weather::config;
-
-      weather::WeatherConfig cfg;
-      cfg.enabled  = true;                    // Always enabled if loaded
-      cfg.provider = precompiledCfg.provider; // Same type, no cast needed
-      cfg.units    = precompiledCfg.units;    // Same type, no cast needed
-
-      // Handle location variant (Coordinates = pair<double,double>, CityName = string_view)
-      std::visit(
-        [&cfg](auto&& loc) -> auto {
-          using T = std::decay_t<decltype(loc)>;
-          if constexpr (std::is_same_v<T, Coordinates>)
-            cfg.coords = weather::Coords { loc.first, loc.second }; // {lat, lon}
-          else if constexpr (std::is_same_v<T, CityName>)
-            cfg.city = String(loc); // string_view directly
-        },
-        precompiledCfg.location
-      );
-
-      if (precompiledCfg.apiKey.has_value())
-        cfg.apiKey = String(*precompiledCfg.apiKey);
-
-      return cfg;
-    }
-#else
     // Helper to convert TomlWeatherConfig to weather::WeatherConfig
     static auto parseTomlConfig(const TomlWeatherConfig& tomlCfg) -> weather::WeatherConfig {
       weather::WeatherConfig cfg;
@@ -962,9 +920,7 @@ namespace {
       createDefaultConfig(weatherConfigPath);
       return weather::WeatherConfig {};
     }
-#endif // DRAC_PRECOMPILED_CONFIG
 
-#if !DRAC_PRECOMPILED_CONFIG
     static auto createDefaultConfig(const fs::path& configPath) -> void {
       std::error_code errc;
       fs::create_directories(configPath.parent_path(), errc);
@@ -1000,7 +956,6 @@ units = "metric"
 # api_key = "your_api_key_here"
 )";
     }
-#endif // !DRAC_PRECOMPILED_CONFIG
 
     auto createProvider() -> Result<Unit> {
       if (!m_config.enabled) {
@@ -1073,11 +1028,6 @@ units = "metric"
       debug_log("Weather plugin config dir: {}", ctx.configDir.string());
 
       // Load configuration - check runtime config first, then filesystem
-#if DRAC_PRECOMPILED_CONFIG
-      // Read config directly from config.hpp - validated at compile time
-      m_config = loadConfigFromPrecompiled(draconis::config::WEATHER_CONFIG);
-      debug_log("Weather plugin loaded from precompiled config");
-#else
       // Check for runtime config passed via setConfig()
       bool configLoaded = false;
 
@@ -1107,7 +1057,6 @@ units = "metric"
           debug_log("Weather plugin config loaded from filesystem: enabled={}", m_config.enabled);
         }
       }
-#endif
 
       // Create provider if enabled
       if (m_config.enabled) {

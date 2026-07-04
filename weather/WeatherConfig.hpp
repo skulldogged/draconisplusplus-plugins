@@ -1,16 +1,13 @@
 /**
  * @file WeatherConfig.hpp
- * @brief Typed configuration for the weather plugin (precompiled config mode)
+ * @brief Shared typed configuration helpers for the weather plugin
  * @author Draconis++ Team
  * @version 1.0.0
  *
- * @details This header provides type-safe configuration for the weather plugin
- * when using precompiled config mode. The configuration uses:
+ * @details This header provides type-safe configuration helpers for the weather
+ * plugin. The configuration uses:
  * - std::variant for location (either coordinates or city name)
  * - consteval validation to catch config errors at compile time
- *
- * Users define their config in config.hpp, and validation happens automatically
- * in the weather plugin during compilation.
  */
 
 #pragma once
