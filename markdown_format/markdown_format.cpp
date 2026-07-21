@@ -223,8 +223,9 @@ namespace {
       return builder.build();
     }
 
-    [[nodiscard]] auto getFormatNames() const -> Vec<String> override {
-      return { FORMAT_MARKDOWN };
+    [[nodiscard]] auto getFormatNames() const -> Span<const String> override {
+      static const Array<String, 1> names = { FORMAT_MARKDOWN };
+      return names;
     }
 
     [[nodiscard]] auto getFileExtension(const String& /*formatName*/) const -> String override {

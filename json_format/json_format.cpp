@@ -237,8 +237,9 @@ namespace {
       return jsonStr;
     }
 
-    [[nodiscard]] auto getFormatNames() const -> Vec<String> override {
-      return { FORMAT_JSON, FORMAT_JSON_PRETTY };
+    [[nodiscard]] auto getFormatNames() const -> Span<const String> override {
+      static const Array<String, 2> names = { FORMAT_JSON, FORMAT_JSON_PRETTY };
+      return names;
     }
 
     [[nodiscard]] auto getFileExtension(const String& /*formatName*/) const -> String override {

@@ -66,22 +66,39 @@ With the core Home Manager module:
 programs.draconisplusplus = {
   enable = true;
   configFormat = "hpp";
+  pluginMode = "static";
   pluginPackages = [
     (inputs.draconisplusplus-plugins.lib.${pkgs.system}.mkPluginRoot {
-      weather = {
-        provider = "openmeteo";
-        units = "imperial";
-        coords = {
-          lat = 40.7128;
-          lon = -74.0060;
+      plugins = {
+        json_format = true;
+        markdown_format = true;
+        now_playing = true;
+        weather = {
+          enable = true;
+          settings = {
+            provider = "openmeteo";
+            units = "imperial";
+            coords = {
+              lat = 40.7128;
+              lon = -74.0060;
+            };
+          };
         };
+        yaml_format = true;
       };
     })
   ];
-  staticPlugins = ["weather" "json_format"];
-  pluginAutoLoad = ["weather"];
 };
 ```
+
+`plugins.<name>` accepts either a boolean or an attribute set with `enable`
+and optional plugin-specific `settings`. The generated root contains only the
+enabled plugins and advertises their names and build dependencies to the core
+Home Manager module. `pluginMode = "static"` compiles every plugin in those
+roots, so users do not need to repeat the names in `staticPlugins`.
+
+The legacy `names`, `weather`, and explicit `staticPlugins` interfaces remain
+available for existing configurations.
 
 Third-party plugins do not need flakes. Users can still pass a plain plugin
 root path to the core module:

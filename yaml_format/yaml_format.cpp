@@ -206,8 +206,9 @@ namespace {
       return yaml;
     }
 
-    [[nodiscard]] auto getFormatNames() const -> Vec<String> override {
-      return { FORMAT_YAML };
+    [[nodiscard]] auto getFormatNames() const -> Span<const String> override {
+      static const Array<String, 1> names = { FORMAT_YAML };
+      return names;
     }
 
     [[nodiscard]] auto getFileExtension(const String& /*formatName*/) const -> String override {
