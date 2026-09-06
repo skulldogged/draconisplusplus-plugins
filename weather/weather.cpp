@@ -26,7 +26,9 @@
 #include <unordered_map>
 #include <utility>
 
+#if !DRAC_PRECOMPILED_CONFIG
 namespace fs = std::filesystem;
+#endif
 
 // Always include WeatherConfig.hpp for unified enum definitions
 #include "WeatherConfig.hpp"
@@ -49,6 +51,8 @@ using namespace draconis::utils::error;
 using namespace draconis::utils::logging;
 using enum DracErrorCode;
 
+// These named implementation types are referenced by Glaze metadata below.
+// NOLINTBEGIN(misc-use-internal-linkage)
 namespace weather {
   // Use unified enum definitions from WeatherConfig.hpp
   using Provider   = config::Provider;
@@ -614,7 +618,7 @@ namespace weather::providers {
 
         String description;
         if (data.next1Hours) {
-          String strippedSymbol = StripTimeOfDayFromSymbol(data.next1Hours->summary.symbolCode);
+          const String strippedSymbol = StripTimeOfDayFromSymbol(data.next1Hours->summary.symbolCode);
           if (auto iter = GetMetnoSymbolDescriptions().find(strippedSymbol); iter != GetMetnoSymbolDescriptions().end())
             description = String(iter->second);
           else
@@ -754,7 +758,7 @@ namespace weather::providers {
 
       return WeatherData {
         .temperature = owmResponse.main.temp,
-        .description = !owmResponse.weather.empty() ? Some(owmResponse.weather[0].description) : None,
+        .description = !owmResponse.weather.empty() ? Some(owmResponse.weather.at(0).description) : None,
         .location    = owmResponse.name.empty() ? None : Some(owmResponse.name),
         .units       = UnitSystem::Metric, // Will be set by caller
       };
@@ -823,6 +827,7 @@ namespace weather::providers {
     }
   } // namespace
 } // namespace weather::providers
+// NOLINTEND(misc-use-internal-linkage)
 
 namespace {
   class WeatherPlugin : public IInfoProviderPlugin {
@@ -833,9 +838,9 @@ namespace {
     Option<String>                                      m_lastError;
     UniquePointer<weather::providers::IWeatherProvider> m_provider;
 #if !DRAC_PRECOMPILED_CONFIG
-    Option<String>                                      m_runtimeConfig;
+    Option<String> m_runtimeConfig;
 #endif
-    bool                                                m_ready = false;
+    bool m_ready = false;
 
 #if DRAC_PRECOMPILED_CONFIG
     // Load configuration from typed precompiled plugin config.
@@ -1078,10 +1083,10 @@ units = "metric"
       if (m_runtimeConfig) {
         debug_log("Weather plugin: parsing runtime config");
         TomlWeatherConfig tomlCfg;
-        glz::context parseCtx {};
+        glz::context      parseCtx {};
 
         if (const auto readError = glz::read<glz::opts { .format = glz::TOML, .error_on_unknown_keys = false }>(tomlCfg, *m_runtimeConfig, parseCtx); !readError) {
-          m_config = parseTomlConfig(tomlCfg);
+          m_config     = parseTomlConfig(tomlCfg);
           configLoaded = true;
           debug_log("Weather plugin config loaded from runtime: enabled={}", m_config.enabled);
         } else {

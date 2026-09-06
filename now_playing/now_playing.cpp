@@ -56,14 +56,15 @@ namespace glz {
 namespace now_playing::npsm {
   // {BCBB9860-C012-4AD7-A938-6E337AE6ABA5}
   static const GUID CLSID_NowPlayingSessionManager = {
-    0xBCBB9860,
-    0xC012,
-    0x4AD7,
-    { 0xA9, 0x38, 0x6E, 0x33, 0x7A, 0xE6, 0xAB, 0xA5 }
+    .Data1 = 0xBCBB9860,
+    .Data2 = 0xC012,
+    .Data3 = 0x4AD7,
+    .Data4 = { 0xA9, 0x38, 0x6E, 0x33, 0x7A, 0xE6, 0xAB, 0xA5 }
   };
 
   // INowPlayingSessionManager - {3b6a7908-ce07-4ba9-878c-6e4a15db5e5b} (19041+)
-  // NOLINTBEGIN(cppcoreguidelines-virtual-class-destructor, readability-identifier-naming)
+  // These declarations mirror Windows COM interfaces and must retain their ABI.
+  // NOLINTBEGIN(cppcoreguidelines-virtual-class-destructor,readability-identifier-naming,misc-use-internal-linkage)
   MIDL_INTERFACE("3b6a7908-ce07-4ba9-878c-6e4a15db5e5b")
   INowPlayingSessionManager : public IUnknown {
    public:
@@ -103,25 +104,35 @@ namespace now_playing::npsm {
     virtual auto STDMETHODCALLTYPE SendMediaPlaybackCommand(int command) -> HRESULT           = 0;
     virtual auto STDMETHODCALLTYPE GetMediaObjectInfo(IPropertyStore * *ppPropStore)->HRESULT = 0;
   };
-  // NOLINTEND(cppcoreguidelines-virtual-class-destructor, readability-identifier-naming)
+  // NOLINTEND(cppcoreguidelines-virtual-class-destructor,readability-identifier-naming,misc-use-internal-linkage)
+} // namespace now_playing::npsm
+
+  #ifdef __CRT_UUID_DECL
+__CRT_UUID_DECL(now_playing::npsm::INowPlayingSessionManager, 0x3b6a7908, 0xce07, 0x4ba9, 0x87, 0x8c, 0x6e, 0x4a, 0x15, 0xdb, 0x5e, 0x5b)
+__CRT_UUID_DECL(now_playing::npsm::INowPlayingSession, 0x431268cf, 0x7477, 0x4285, 0x95, 0x0b, 0x6f, 0x89, 0x2a, 0x94, 0x47, 0x12)
+__CRT_UUID_DECL(now_playing::npsm::IMediaPlaybackDataSource, 0x0f4521be, 0xa0b8, 0x4116, 0xb3, 0xb1, 0xbf, 0xec, 0xeb, 0xae, 0xeb, 0xe6)
+__CRT_UUID_DECL(now_playing::npsm::IMediaPlaybackDataSource2, 0xc4f66b80, 0xdf04, 0x4f79, 0xaf, 0xc2, 0xbe, 0xe3, 0xfc, 0x7c, 0x46, 0xe3)
+  #endif
+
+namespace now_playing::npsm {
 
   // Property keys for media metadata
   // PKEY_Title = {F29F85E0-4FF9-1068-AB91-08002B27B3D9}, 2
   static const PROPERTYKEY PKEY_Title = {
-    { 0xF29F85E0, 0x4FF9, 0x1068, { 0xAB, 0x91, 0x08, 0x00, 0x2B, 0x27, 0xB3, 0xD9 } },
-    2
+    .fmtid = { .Data1 = 0xF29F85E0, .Data2 = 0x4FF9, .Data3 = 0x1068, .Data4 = { 0xAB, 0x91, 0x08, 0x00, 0x2B, 0x27, 0xB3, 0xD9 } },
+    .pid   = 2
   };
 
   // PKEY_Music_Artist = {56A3372E-CE9C-11D2-9F0E-006097C686F6}, 2
   static const PROPERTYKEY PKEY_Music_Artist = {
-    { 0x56A3372E, 0xCE9C, 0x11D2, { 0x9F, 0x0E, 0x00, 0x60, 0x97, 0xC6, 0x86, 0xF6 } },
-    2
+    .fmtid = { .Data1 = 0x56A3372E, .Data2 = 0xCE9C, .Data3 = 0x11D2, .Data4 = { 0x9F, 0x0E, 0x00, 0x60, 0x97, 0xC6, 0x86, 0xF6 } },
+    .pid   = 2
   };
 
   // PKEY_Music_AlbumTitle = {56A3372E-CE9C-11D2-9F0E-006097C686F6}, 4
   static const PROPERTYKEY PKEY_Music_AlbumTitle = {
-    { 0x56A3372E, 0xCE9C, 0x11D2, { 0x9F, 0x0E, 0x00, 0x60, 0x97, 0xC6, 0x86, 0xF6 } },
-    4
+    .fmtid = { .Data1 = 0x56A3372E, .Data2 = 0xCE9C, .Data3 = 0x11D2, .Data4 = { 0x9F, 0x0E, 0x00, 0x60, 0x97, 0xC6, 0x86, 0xF6 } },
+    .pid   = 4
   };
 
   namespace {
@@ -153,9 +164,9 @@ namespace now_playing::npsm {
      */
     auto FetchNowPlaying() -> Result<MediaData> {
       // Initialize COM if not already initialized
-      HRESULT hrCoInit = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-      bool needsCoUninit = SUCCEEDED(hrCoInit);
-      
+      HRESULT const hrCoInit      = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+      const bool    needsCoUninit = SUCCEEDED(hrCoInit);
+
       Microsoft::WRL::ComPtr<INowPlayingSessionManager> sessionManager;
 
   #pragma clang diagnostic push
@@ -169,7 +180,8 @@ namespace now_playing::npsm {
   #pragma clang diagnostic pop
 
       if (FAILED(result)) {
-        if (needsCoUninit) CoUninitialize();
+        if (needsCoUninit)
+          CoUninitialize();
         ERR_FMT(ApiUnavailable, "Failed to create NowPlayingSessionManager (HRESULT: 0x{:08X})", static_cast<u32>(result));
       }
 
@@ -181,21 +193,24 @@ namespace now_playing::npsm {
       Microsoft::WRL::ComPtr<IUnknown> sessionUnknown;
       result = sessionManager->get_CurrentSession(&sessionUnknown);
       if (FAILED(result) || !sessionUnknown) {
-        if (needsCoUninit) CoUninitialize();
+        if (needsCoUninit)
+          CoUninitialize();
         ERR_FMT(NotFound, "No media session found (HRESULT: 0x{:08X}, sessionCount={})", static_cast<u32>(result), sessionCount);
       }
 
       Microsoft::WRL::ComPtr<INowPlayingSession> session;
       result = sessionUnknown.As(&session);
       if (FAILED(result)) {
-        if (needsCoUninit) CoUninitialize();
+        if (needsCoUninit)
+          CoUninitialize();
         ERR_FMT(ApiUnavailable, "Failed to get INowPlayingSession interface (HRESULT: 0x{:08X})", static_cast<u32>(result));
       }
 
       Microsoft::WRL::ComPtr<IUnknown> dataSourceUnknown;
       result = session->ActivateMediaPlaybackDataSource(&dataSourceUnknown);
       if (FAILED(result) || !dataSourceUnknown) {
-        if (needsCoUninit) CoUninitialize();
+        if (needsCoUninit)
+          CoUninitialize();
         ERR_FMT(ApiUnavailable, "Failed to activate MediaPlaybackDataSource (HRESULT: 0x{:08X})", static_cast<u32>(result));
       }
 
@@ -210,14 +225,16 @@ namespace now_playing::npsm {
         Microsoft::WRL::ComPtr<IMediaPlaybackDataSource> dataSource;
         result = dataSourceUnknown.As(&dataSource);
         if (FAILED(result)) {
-          if (needsCoUninit) CoUninitialize();
+          if (needsCoUninit)
+            CoUninitialize();
           ERR_FMT(ApiUnavailable, "Failed to get IMediaPlaybackDataSource interface (HRESULT: 0x{:08X})", static_cast<u32>(result));
         }
         result = dataSource->GetMediaObjectInfo(&propStore);
       }
 
       if (FAILED(result) || !propStore) {
-        if (needsCoUninit) CoUninitialize();
+        if (needsCoUninit)
+          CoUninitialize();
         ERR(ApiUnavailable, "Failed to get media object info");
       }
 
@@ -249,7 +266,8 @@ namespace now_playing::npsm {
 
       PropVariantClear(&pVar);
 
-      if (needsCoUninit) CoUninitialize();
+      if (needsCoUninit)
+        CoUninitialize();
       return data;
     }
   } // anonymous namespace
@@ -635,8 +653,7 @@ namespace now_playing::dbus {
       } else if (*key == "xesam:album") {
         data.album = valueVariantIter.getString();
       } else if (*key == "xesam:artist") {
-        if (valueVariantIter.getArgType() == DBUS_TYPE_ARRAY &&
-            valueVariantIter.getElementType() == DBUS_TYPE_STRING) {
+        if (valueVariantIter.getArgType() == DBUS_TYPE_ARRAY && valueVariantIter.getElementType() == DBUS_TYPE_STRING) {
           MessageIter artistArrayIter = valueVariantIter.recurse();
           if (artistArrayIter.isValid())
             data.artist = artistArrayIter.getString();
@@ -670,7 +687,7 @@ namespace {
         .author  = "Draconis++ Team",
 #ifdef _WIN32
         .description = "Provides currently playing media information via Windows NPSM",
-#elif defined(__APPLE__)
+#elifdef __APPLE__
         .description = "Provides currently playing media information via macOS MediaRemote",
 #else
         .description = "Provides currently playing media information via MPRIS/DBus",
@@ -695,12 +712,12 @@ namespace {
       // Parse TOML config for now_playing
       // Currently only 'enabled' field is supported
       // Example: enabled = true
-      String configStr(tomlConfig);
+      const String configStr(tomlConfig);
 
       // Simple parsing - look for enabled = true/false
-      if (configStr.find("enabled = false") != String::npos || configStr.find("enabled=false") != String::npos)
+      if (configStr.contains("enabled = false") || configStr.contains("enabled=false"))
         m_config.enabled = false;
-      else if (configStr.find("enabled = true") != String::npos || configStr.find("enabled=true") != String::npos)
+      else if (configStr.contains("enabled = true") || configStr.contains("enabled=true"))
         m_config.enabled = true;
 
       debug_log("Now Playing plugin: received runtime config, enabled={}", m_config.enabled);
@@ -739,7 +756,7 @@ namespace {
       // Fetch fresh data using platform-specific implementation (no caching - media changes too frequently)
 #ifdef _WIN32
       auto result = now_playing::npsm::FetchNowPlaying();
-#elif defined(__APPLE__)
+#elifdef __APPLE__
       auto result = now_playing::macos::fetchNowPlaying();
 #else
       auto result = now_playing::dbus::fetchNowPlaying();

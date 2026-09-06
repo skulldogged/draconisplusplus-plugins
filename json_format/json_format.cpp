@@ -141,15 +141,15 @@ namespace {
     }
 
     [[nodiscard]] auto formatOutput(
-      const String&                           formatName,
-      const Map<String, String>&              data,
-      const PluginData&                       pluginData
+      const String&              formatName,
+      const Map<String, String>& data,
+      const PluginData&          pluginData
     ) const -> Result<String> override {
       if (!m_ready)
         return Err(draconis::utils::error::DracError { draconis::utils::error::DracErrorCode::Other, "JsonFormatPlugin is not ready." });
 
       // Determine if pretty printing based on format name
-      bool prettyPrint = (formatName == FORMAT_JSON_PRETTY);
+      const bool prettyPrint = (formatName == FORMAT_JSON_PRETTY);
 
       // Build the JSON output structure
       JsonOutput output;
@@ -227,7 +227,7 @@ namespace {
       // Serialize to JSON
       String jsonStr;
 
-      glz::error_ctx errorContext = prettyPrint
+      const glz::error_ctx errorContext = prettyPrint
         ? glz::write<glz::opts { .skip_null_members = true, .prettify = true }>(output, jsonStr)
         : glz::write<glz::opts { .skip_null_members = true }>(output, jsonStr);
 
@@ -238,8 +238,8 @@ namespace {
     }
 
     [[nodiscard]] auto getFormatNames() const -> Span<const String> override {
-      static const Array<String, 2> names = { FORMAT_JSON, FORMAT_JSON_PRETTY };
-      return names;
+      static const Array<String, 2> FORMAT_NAMES = { FORMAT_JSON, FORMAT_JSON_PRETTY };
+      return FORMAT_NAMES;
     }
 
     [[nodiscard]] auto getFileExtension(const String& /*formatName*/) const -> String override {

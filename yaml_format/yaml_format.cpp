@@ -15,6 +15,11 @@
  */
 
 #define RYML_SINGLE_HDR_DEFINE_NOW
+
+#if defined(__MINGW32__) && defined(__clang__) && !defined(C4_MINGW)
+  #define C4_MINGW
+#endif
+
 #include <Drac++/Core/Plugin.hpp>
 
 #include <Drac++/Utils/Error.hpp>
@@ -25,6 +30,8 @@
 namespace {
   using namespace draconis::utils::types;
 
+  // RapidYAML overloads operator[] for map-key lookup, not unchecked indexing.
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   class YamlFormatPlugin : public draconis::core::plugin::IOutputFormatPlugin {
    private:
     draconis::core::plugin::PluginMetadata m_metadata;
@@ -80,9 +87,9 @@ namespace {
       return m_ready;
     }
 
-    auto formatOutput(
+    [[nodiscard]] auto formatOutput(
       const String& /*formatName*/,
-      const Map<String, String>&              data,
+      const Map<String, String>&                data,
       const draconis::core::plugin::PluginData& pluginData
     ) const -> Result<String> override {
       if (!m_ready)
@@ -121,8 +128,7 @@ namespace {
       }
 
       // Hardware section
-      if (getValue(data, "ram") || getValue(data, "disk") || getValue(data, "cpu") ||
-          getValue(data, "gpu") || getValue(data, "uptime")) {
+      if (getValue(data, "ram") || getValue(data, "disk") || getValue(data, "cpu") || getValue(data, "gpu") || getValue(data, "uptime")) {
         ryml::NodeRef hardware = root["hardware"];
         hardware |= ryml::MAP;
 
@@ -188,12 +194,12 @@ namespace {
 
         for (const auto& [pluginId, fields] : pluginData) {
           // Copy plugin ID to arena so it outlives the loop
-          ryml::csubstr arenaPluginId = tree.copy_to_arena(ryml::to_csubstr(pluginId));
+          const ryml::csubstr arenaPluginId = tree.copy_to_arena(ryml::to_csubstr(pluginId));
           pluginsNode[arenaPluginId] |= ryml::MAP;
 
           for (const auto& [fieldName, value] : fields) {
-            ryml::csubstr arenaFieldName               = tree.copy_to_arena(ryml::to_csubstr(fieldName));
-            const String stringValue                    = draconis::core::plugin::PluginFieldToString(value);
+            const ryml::csubstr arenaFieldName         = tree.copy_to_arena(ryml::to_csubstr(fieldName));
+            const String        stringValue            = draconis::core::plugin::PluginFieldToString(value);
             pluginsNode[arenaPluginId][arenaFieldName] = tree.copy_to_arena(ryml::to_csubstr(stringValue));
           }
         }
@@ -207,14 +213,15 @@ namespace {
     }
 
     [[nodiscard]] auto getFormatNames() const -> Span<const String> override {
-      static const Array<String, 1> names = { FORMAT_YAML };
-      return names;
+      static const Array<String, 1> FORMAT_NAMES = { FORMAT_YAML };
+      return FORMAT_NAMES;
     }
 
     [[nodiscard]] auto getFileExtension(const String& /*formatName*/) const -> String override {
       return "yaml";
     }
   };
+  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 } // anonymous namespace
 
 DRAC_PLUGIN(YamlFormatPlugin)

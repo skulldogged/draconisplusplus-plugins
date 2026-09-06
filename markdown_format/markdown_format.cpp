@@ -140,9 +140,9 @@ namespace {
       return m_ready;
     }
 
-    auto formatOutput(
+    [[nodiscard]] auto formatOutput(
       const String& /*formatName*/,
-      const Map<String, String>&              data,
+      const Map<String, String>&                data,
       const draconis::core::plugin::PluginData& pluginData
     ) const -> Result<String> override {
       if (!m_ready)
@@ -162,8 +162,8 @@ namespace {
       // Weather requires special handling due to formatting logic
       if (auto iter = data.find("weather_temperature"); iter != data.end() && !iter->second.empty()) {
         try {
-          double temperature = std::stod(iter->second);
-          String suffix;
+          const double temperature = std::stod(iter->second);
+          String       suffix;
 
           if (auto town = data.find("weather_town"); town != data.end() && !town->second.empty())
             suffix = std::format(" in {}", town->second);
@@ -197,7 +197,7 @@ namespace {
       // Packages requires validation (skip if zero)
       if (auto iter = data.find("packages"); iter != data.end() && !iter->second.empty()) {
         try {
-          if (u64 count = std::stoull(iter->second); count > 0)
+          if (const u64 count = std::stoull(iter->second); count > 0)
             builder.line("Packages", std::to_string(count));
         } catch (...) {
           (void)0; // Ignore invalid package count values
@@ -224,8 +224,8 @@ namespace {
     }
 
     [[nodiscard]] auto getFormatNames() const -> Span<const String> override {
-      static const Array<String, 1> names = { FORMAT_MARKDOWN };
-      return names;
+      static const Array<String, 1> FORMAT_NAMES = { FORMAT_MARKDOWN };
+      return FORMAT_NAMES;
     }
 
     [[nodiscard]] auto getFileExtension(const String& /*formatName*/) const -> String override {
