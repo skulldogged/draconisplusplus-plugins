@@ -12,12 +12,15 @@
 
 #ifdef __APPLE__
 
-#import <Foundation/Foundation.h>
-#import <dispatch/dispatch.h>
+  #import <Foundation/Foundation.h>
+  #include <condition_variable>
+  #import <dispatch/dispatch.h>
+  #include <memory>
+  #include <mutex>
 
-#include <Drac++/Utils/Error.hpp>
+  #include <Drac++/Utils/Error.hpp>
 
-#include "now_playing_types.hpp"
+  #include "now_playing_types.hpp"
 
 using namespace draconis::utils::types;
 using namespace draconis::utils::error;
@@ -35,40 +38,48 @@ namespace now_playing::macos {
     auto fetchViaNativeApi() -> Result<MediaData> {
       // Since MediaRemote.framework is private, we cannot link against it directly.
       // Instead, it must be loaded at runtime using CFURL and CFBundle.
-      CFURLRef urlRef = CFURLCreateWithFileSystemPath(
-        kCFAllocatorDefault,
-        CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"),
-        kCFURLPOSIXPathStyle,
-        false
-      );
+      static const auto bundle = [] {
+        CFURLRef urlRef = CFURLCreateWithFileSystemPath(
+          kCFAllocatorDefault,
+          CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"),
+          kCFURLPOSIXPathStyle,
+          false
+        );
 
-      if (!urlRef)
-        ERR(NotFound, "Failed to create CFURL for MediaRemote.framework");
+        if (!urlRef)
+          return std::unique_ptr<const void, decltype(&CFRelease)>(nullptr, &CFRelease);
 
-      // Create a bundle from the URL
-      CFBundleRef bundleRef = CFBundleCreate(kCFAllocatorDefault, urlRef);
-      CFRelease(urlRef);
+        // Create a bundle from the URL
+        CFBundleRef bundleRef = CFBundleCreate(kCFAllocatorDefault, urlRef);
+        CFRelease(urlRef);
+        return std::unique_ptr<const void, decltype(&CFRelease)>(bundleRef, &CFRelease);
+      }();
 
-      if (!bundleRef)
+      if (!bundle)
         ERR(ApiUnavailable, "Failed to create bundle for MediaRemote.framework");
 
       // Get a pointer to the MRMediaRemoteGetNowPlayingInfo function from the bundle.
       auto mrMediaRemoteGetNowPlayingInfo = std::bit_cast<MRMediaRemoteGetNowPlayingInfoFn>(
-        CFBundleGetFunctionPointerForName(bundleRef, CFSTR("MRMediaRemoteGetNowPlayingInfo"))
+        CFBundleGetFunctionPointerForName(static_cast<CFBundleRef>(bundle.get()), CFSTR("MRMediaRemoteGetNowPlayingInfo"))
       );
 
       if (!mrMediaRemoteGetNowPlayingInfo) {
-        CFRelease(bundleRef);
         ERR(ApiUnavailable, "Failed to get MRMediaRemoteGetNowPlayingInfo function pointer");
       }
 
-      // A semaphore is used to make this asynchronous call behave synchronously.
-      __block Result<MediaData>  result;
-      const dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+      // The copied block retains this state even if its callback arrives after
+      // our deadline. No callback writes into expired stack storage.
+      struct RequestState {
+        std::mutex                mutex;
+        std::condition_variable   completed;
+        Option<Result<MediaData>> result;
+      };
+      const auto state = std::make_shared<RequestState>();
 
       mrMediaRemoteGetNowPlayingInfo(
         dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
         ^(NSDictionary* information) {
+          Result<MediaData> result;
           if (!information) {
             result = Err(DracError(NotFound, "No media is currently playing"));
           } else {
@@ -96,19 +107,18 @@ namespace now_playing::macos {
             }
           }
 
-          dispatch_semaphore_signal(semaphore);
+          {
+            const std::lock_guard lock(state->mutex);
+            state->result = std::move(result);
+          }
+          state->completed.notify_one();
         }
       );
 
-      // Block until the callback signals completion
-      dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-
-      // Note: We intentionally don't release bundleRef here.
-      // CFBundleCreate may return a cached bundle, and releasing it
-      // could cause issues. The bundle will be cleaned up when the
-      // process exits.
-
-      return result;
+      std::unique_lock lock(state->mutex);
+      if (!state->completed.wait_for(lock, std::chrono::seconds(3), [&] { return state->result.has_value(); }))
+        ERR(Timeout, "MediaRemote request timed out");
+      return std::move(*state->result);
     }
   } // namespace
 
