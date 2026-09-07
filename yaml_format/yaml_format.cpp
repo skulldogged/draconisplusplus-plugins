@@ -58,6 +58,33 @@ namespace {
         node[ryml::to_csubstr(key)] = ryml::to_csubstr(*value);
     }
 
+    static auto writeField(ryml::Tree& tree, ryml::NodeRef node, const draconis::core::plugin::PluginFieldValue& value) -> void {
+      using namespace draconis::core::plugin;
+      std::visit([&](const auto& inner) {
+        using T = std::decay_t<decltype(inner)>;
+        if constexpr (std::same_as<T, PluginFieldObject>) {
+          node |= ryml::MAP;
+          for (const auto& [key, child] : inner) {
+            auto entry = node[tree.copy_to_arena(ryml::to_csubstr(key))];
+            entry |= ryml::KEY_DQUO;
+            writeField(tree, entry, child);
+          }
+        } else if constexpr (std::same_as<T, PluginFieldArray>) {
+          node |= ryml::SEQ;
+          for (const auto& child : inner)
+            writeField(tree, node.append_child(), child);
+        } else if constexpr (std::same_as<T, bool>) {
+          node = inner ? ryml::csubstr("true") : ryml::csubstr("false");
+        } else if constexpr (std::same_as<T, String>) {
+          node = tree.copy_to_arena(ryml::to_csubstr(inner));
+          node |= ryml::VAL_DQUO;
+        } else {
+          node << inner;
+        }
+      },
+                 static_cast<const PluginFieldValueBase&>(value));
+    }
+
    public:
     YamlFormatPlugin() {
       m_metadata = {
@@ -198,9 +225,10 @@ namespace {
           pluginsNode[arenaPluginId] |= ryml::MAP;
 
           for (const auto& [fieldName, value] : fields) {
-            const ryml::csubstr arenaFieldName         = tree.copy_to_arena(ryml::to_csubstr(fieldName));
-            const String        stringValue            = draconis::core::plugin::PluginFieldToString(value);
-            pluginsNode[arenaPluginId][arenaFieldName] = tree.copy_to_arena(ryml::to_csubstr(stringValue));
+            const ryml::csubstr arenaFieldName = tree.copy_to_arena(ryml::to_csubstr(fieldName));
+            auto                field          = pluginsNode[arenaPluginId][arenaFieldName];
+            field |= ryml::KEY_DQUO;
+            writeField(tree, field, value);
           }
         }
       }

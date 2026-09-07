@@ -87,6 +87,20 @@ namespace weather {
     Option<String> city;
     Option<String> apiKey;
   };
+
+  // Stable identity excludes credentials. The schema version also prevents
+  // older unit/location-agnostic entries from being reused.
+  auto CacheIdentity(const WeatherConfig& config) -> String {
+    String identity = std::format("v2|{}|{}|{}|", static_cast<int>(config.provider), static_cast<int>(config.units), config.city.value_or(""));
+    if (config.coords)
+      identity += std::format("{},{}", config.coords->lat, config.coords->lon);
+    u64 hash = 14695981039346656037ULL;
+    for (const unsigned char byte : identity) {
+      hash ^= byte;
+      hash *= 1099511628211ULL;
+    }
+    return std::format("weather_v2_{:016x}", hash);
+  }
 } // namespace weather
 
 // TOML parsing structures for glaze
@@ -1154,28 +1168,14 @@ units = "metric"
 
       m_lastError = None;
 
-      // Check cache first - directly cache WeatherData using BEVE (no JSON conversion needed)
-      String cacheKey = "weather_data";
-      if (auto cached = cache.get<weather::WeatherData>(cacheKey)) {
-        debug_log("Weather: Found cached data for key '{}'", cacheKey);
-        m_data = *cached;
-        return {};
-      }
-      debug_log("Weather: No cached data found for key '{}'", cacheKey);
-
-      // Fetch fresh data
-      auto result = m_provider->fetch();
+      const auto result = cache.getOrSet<weather::WeatherData>(weather::CacheIdentity(m_config), 600, [&] {
+        return m_provider->fetch();
+      });
       if (!result) {
         m_lastError = result.error().message;
         return std::unexpected(result.error());
       }
-
       m_data = *result;
-
-      // Cache the result directly as WeatherData (BEVE format, 10 minute TTL)
-      cache.set(cacheKey, m_data, 600);
-      debug_log("Weather: Cached data with key '{}'", cacheKey);
-
       return {};
     }
 

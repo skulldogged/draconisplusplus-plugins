@@ -556,43 +556,9 @@ namespace now_playing::dbus {
   /**
    * @brief Fetch now playing information via MPRIS/DBus
    */
-  auto fetchNowPlaying() -> Result<MediaData> {
-    Connection connection = TRY(Connection::busGet(DBUS_BUS_SESSION));
-
-    Option<String> activePlayer = None;
-
-    // Find active MPRIS player
-    {
-      Message listNamesMsg = TRY(
-        Message::newMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames")
-      );
-
-      Message listNamesReply = TRY(connection.sendWithReplyAndBlock(listNamesMsg, 100));
-
-      MessageIter iter = listNamesReply.iterInit();
-      if (!iter.isValid() || iter.getArgType() != DBUS_TYPE_ARRAY)
-        ERR(ParseError, "Invalid DBus ListNames reply format: Expected array");
-
-      MessageIter subIter = iter.recurse();
-      if (!subIter.isValid())
-        ERR(ParseError, "Invalid DBus ListNames reply format: Could not recurse into array");
-
-      while (subIter.getArgType() != DBUS_TYPE_INVALID) {
-        if (Option<String> name = subIter.getString())
-          if (name->starts_with("org.mpris.MediaPlayer2.")) {
-            activePlayer = std::move(*name);
-            break;
-          }
-        if (!subIter.next())
-          break;
-      }
-    }
-
-    if (!activePlayer)
-      ERR(NotFound, "No active MPRIS players found");
-
+  auto fetchPlayer(Connection& connection, const String& player) -> Result<MediaData> {
     // Get metadata from active player
-    Message msg = TRY(Message::newMethodCall(activePlayer->c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get"));
+    Message msg = TRY(Message::newMethodCall(player.c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get"));
 
     if (!msg.appendArgs("org.mpris.MediaPlayer2.Player", "Metadata"))
       ERR(InternalError, "Failed to append arguments to Properties.Get message");
@@ -600,7 +566,7 @@ namespace now_playing::dbus {
     Message reply = TRY(connection.sendWithReplyAndBlock(msg, 100));
 
     MediaData data;
-    data.playerName = extractPlayerName(*activePlayer);
+    data.playerName = extractPlayerName(player);
 
     MessageIter propIter = reply.iterInit();
     if (!propIter.isValid())
@@ -666,6 +632,72 @@ namespace now_playing::dbus {
 
     return data;
   }
+  auto fetchNowPlaying() -> Result<MediaData> {
+    Connection connection = TRY(Connection::busGet(DBUS_BUS_SESSION));
+
+    Vec<String> players;
+    const auto  deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+
+    // Find active MPRIS player
+    {
+      Message listNamesMsg = TRY(
+        Message::newMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames")
+      );
+
+      Message listNamesReply = TRY(connection.sendWithReplyAndBlock(listNamesMsg, 100));
+
+      MessageIter iter = listNamesReply.iterInit();
+      if (!iter.isValid() || iter.getArgType() != DBUS_TYPE_ARRAY)
+        ERR(ParseError, "Invalid DBus ListNames reply format: Expected array");
+
+      MessageIter subIter = iter.recurse();
+      if (!subIter.isValid())
+        ERR(ParseError, "Invalid DBus ListNames reply format: Could not recurse into array");
+
+      while (subIter.getArgType() != DBUS_TYPE_INVALID) {
+        if (Option<String> name = subIter.getString())
+          if (name->starts_with("org.mpris.MediaPlayer2.")) {
+            players.push_back(std::move(*name));
+          }
+        if (!subIter.next())
+          break;
+      }
+    }
+
+    std::ranges::sort(players);
+    Vec<Pair<int, String>> ranked;
+    for (const auto& player : players) {
+      if (std::chrono::steady_clock::now() >= deadline)
+        break;
+      auto message = Message::newMethodCall(player.c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get");
+      if (!message || !message->appendArgs("org.mpris.MediaPlayer2.Player", "PlaybackStatus"))
+        continue;
+      auto reply = connection.sendWithReplyAndBlock(*message, 100);
+      if (!reply)
+        continue;
+      auto value = reply->iterInit();
+      if (!value.isValid() || value.getArgType() != DBUS_TYPE_VARIANT)
+        continue;
+      auto       contents = value.recurse();
+      const auto status   = contents.getString();
+      if (!status)
+        continue;
+      ranked.emplace_back(*status == "Playing" ? 0 : *status == "Paused" ? 1
+                                                                         : 2,
+                          player);
+    }
+    std::ranges::sort(ranked);
+    for (const auto& [rank, player] : ranked) {
+      (void)rank;
+      if (std::chrono::steady_clock::now() >= deadline)
+        break;
+      auto data = fetchPlayer(connection, player);
+      if (data && data->title)
+        return data;
+    }
+    ERR(NotFound, "No responsive MPRIS player has media metadata");
+  }
+
 } // namespace now_playing::dbus
 
 #endif // Linux/BSD
