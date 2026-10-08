@@ -2,7 +2,7 @@
   description = "Official Draconis++ plugins";
 
   inputs = {
-    draconisplusplus.url = "github:skulldogged/draconisplusplus-monorepo";
+    draconisplusplus.url = "github:bitflippr/draconisplusplus-monorepo";
     draconisplusplus.inputs.nixpkgs.follows = "nixpkgs";
     draconisplusplus.inputs.utils.follows = "utils";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
